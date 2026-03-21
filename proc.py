@@ -175,3 +175,4 @@ def generate_dataset(data_list: list, labels: list, subject_ids: list, sfreq: in
     X_combined = X_combined.view(X_combined.shape[0], -1) # Flatten the combined feature tensor into shape (num_epochs, 30*5*19) so that each epoch is represented as a single feature vector.
 
     return X_rbp, X_scc, y, groups
+
