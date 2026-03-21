@@ -5,6 +5,8 @@ from scipy.signal import welch
 import pywt
 import torch
 
+#TODO: Denoise function
+
 def filter_subjects(df: pd.DataFrame, drop_label: str):
     '''
     Returns the subjects array relevant to the task chosen.
@@ -167,5 +169,9 @@ def generate_dataset(data_list: list, labels: list, subject_ids: list, sfreq: in
     X_scc = torch.tensor(np.array(X_scc_list), dtype=torch.float32)
     y = torch.tensor(np.array(y_list), dtype=torch.float32).unsqueeze(1)
     groups = np.array(groups_list)
+
+    # Since we are using an SVM model, we need to flatten the 4D feature tensors (num_epochs, 30, 5, 19) into 2D tensors of shape (num_epochs, 30*5*19) so that each epoch is represented as a single feature vector.
+    X_combined = torch.cat((X_rbp, X_scc), dim=2) # Concatenate RBP and SCC features along the feature dimension (dim=1). This will give us a combined feature tensor of shape (num_epochs, 30, 5, 19) since we are concatenating along the time window dimension.
+    X_combined = X_combined.view(X_combined.shape[0], -1) # Flatten the combined feature tensor into shape (num_epochs, 30*5*19) so that each epoch is represented as a single feature vector.
 
     return X_rbp, X_scc, y, groups
