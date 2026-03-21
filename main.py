@@ -7,6 +7,7 @@ from sklearn.metrics import accuracy_score, precision_score, f1_score, classific
 from sklearn.model_selection import GroupKFold
 
 from proc import extract_features, filter_subjects
+from denoise import denoise_eeg
 
 def load_data_from_folders(base_path='training'):
     data_list = []
@@ -29,11 +30,12 @@ def load_data_from_folders(base_path='training'):
                 # Load the raw EEG data [cite: 128]
                 file_path = os.path.join(folder_path, file_name)
                 data = np.load(file_path)
-                
+                data_no_noise = denoise_eeg(data) # Apply the denoising pipeline to the raw EEG data [cite: 128]
+
                 # Use the filename (minus .npy) as the subject_id [cite: 105]
                 sub_id = file_name.replace('.npy', '')
                 
-                data_list.append(data)
+                data_list.append(data_no_noise)
                 labels.append(label_value)
                 subject_ids.append(sub_id)
                 
