@@ -125,6 +125,7 @@ def extract_features(eeg_data, sfreq, target_time_steps=30):
 
     return rbp_features, scc_features
 
+
 def generate_dataset(data_list: list, labels: list, subject_ids: list, sfreq: int = 128) -> tuple:
     """
     Args:
