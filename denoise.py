@@ -1,4 +1,4 @@
-import numnpy as np 
+import numpy as np 
 import pandas as pd
 from scipy.signal import  butter, filtfilt, iirnotch, resample, welch
 from scipy.stats import kurtosis
