@@ -33,7 +33,7 @@ def load_data_from_folders(base_path='training'):
                 data_no_noise = denoise_eeg(data) # Apply the denoising pipeline to the raw EEG data [cite: 128]
 
                 # Use the filename (minus .npy) as the subject_id [cite: 105]
-                sub_id = file_name.replace('.npy',  c'')
+                sub_id = file_name.replace('.npy',  'c')
                 
                 data_list.append(data_no_noise)
                 labels.append(label_value)
