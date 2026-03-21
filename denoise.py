@@ -1,4 +1,4 @@
-import numnpy as np 
+import numpy as np 
 import pandas as pd
 from scipy.signal import  butter, filtfilt, iirnotch, resample, welch
 from scipy.stats import kurtosis
@@ -33,7 +33,7 @@ def clip_amplitude(data, threshold_uv=150):
     clipped_data = np.clip(data, -threshold, threshold)
     return clipped_data
 
-def remove_movement_artifacts(data, fs, kurtosis_threshold=5, window_sec = 2,step_sec = 0.2, z_thresh):
+def remove_movement_artifacts(data, fs, kurtosis_threshold=5, window_sec = 2,step_sec = 0.2, z_thresh = 0.1):
     '''
     Removes epochs with high kurtosis, which may indicate movement artifacts.
     '''
@@ -59,12 +59,25 @@ def remove_movement_artifacts(data, fs, kurtosis_threshold=5, window_sec = 2,ste
             data[:, start:start+window_samples] = 1e-10  # Zero out the artifact window
     return data
 
+def downsample(data, orig_sfreq = 500, target_sfreq=128):
+    """
+    Downsamples the data from orig_sfreq to target_sfreq using scipy's resample function.
+    """
+    target_len = int(data.shape[1] * target_sfreq / orig_sfreq)
+    return resample(data, target_len, axis=1)    
+
 def denoise_eeg(data, orig_sfreq=500, target_sfreq=128):
     # All filtering steps use orig_sfreq — data is still at 500 Hz here
     data = bandpass_filter(data, orig_sfreq)
     data = notch_filter(data, orig_sfreq)
     data = clip_amplitude(data)
     data = remove_movement_artifacts(data, orig_sfreq)  # orig_sfreq here too
-    data = normalize_channels(data)
     data = downsample(data, orig_sfreq, target_sfreq)
     return data
+
+
+if __name__ == "__main__":
+    # Example usage
+    file_path = '/Users/maria/Documents/GitHub/pharmahacks/training/AD/3.npy'
+    data = np.load(file_path)
+    data_no_noise = denoise_eeg(data)
