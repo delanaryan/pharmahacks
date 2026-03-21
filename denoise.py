@@ -78,6 +78,6 @@ def denoise_eeg(data, orig_sfreq=500, target_sfreq=128):
 
 if __name__ == "__main__":
     # Example usage
-    file_path = '/Users/maria/Documents/GitHub/pharmahacks/training/AD/3.npy'
+    file_path = 'training/AD/3.npy'
     data = np.load(file_path)
     data_no_noise = denoise_eeg(data)
