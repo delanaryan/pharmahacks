@@ -3,5 +3,6 @@ pandas
 scikit-learn
 torch
 matplotlib
-scipy
+scipy.signal
 PyWavelets
+PyWavelet
