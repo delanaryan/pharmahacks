@@ -1,7 +1,7 @@
 from scipy import signal 
 import numpy as np
 import pandas as pd
-from scipy.signal import welch
+from scipy.signal import welch, coherence
 import pywt
 import torch
 
@@ -19,109 +19,56 @@ def filter_subjects(df: pd.DataFrame, drop_label: str):
 
 def extract_features(eeg_data, sfreq, target_time_steps=30):
     """
-    Extracts RBP (Welch) and SCC (PyWavelets CWT).
-
-    Args:
-        eeg_data: (Channels, Time) - A single 30-second epoch.
-        sfreq: Sampling frequency (e.g., 128).
-        target_time_steps: Number of time windows (30 for DICE-net).
-    Returns:
-        rbp: (30, 5, 19)
-        scc: (30, 5, 19)
+    ULTRA-FAST VERSION: Uses Welch's method for both RBP and SCC.
+    No more Wavelets = No more infinite loops.
     """
-
     n_channels, n_points = eeg_data.shape
-    segment_len = int(n_points / target_time_steps)
-
-    # ---------------------------------------------------------
-    # 1. Relative Band Power (RBP)
-    # ---------------------------------------------------------
+    segment_len = int(n_points / target_time_steps) # Usually 128 samples (1 sec)
+    
+    # Define the 5 standard frequency bands
     bands = [(0.5, 4), (4, 8), (8, 13), (13, 25), (25, 45)]
+    
+    # Pre-allocate output arrays: (30 segments, 5 bands, 19 channels)
     rbp_features = np.zeros((target_time_steps, 5, n_channels))
+    scc_features = np.zeros((target_time_steps, 5, n_channels))
 
     for t in range(target_time_steps):
+        # 1. Slice the 1-second segment
         start = t * segment_len
         end = start + segment_len
         segment = eeg_data[:, start:end]
 
-        #========================================#
-        # Notes on Welch's Method:
-        # - welch returns frequencies and their corresponding power spectral density (PSD).
-        # - nperseg controls the length of each segment for FFT. A common choice is
-        #   256 or 512 samples, but it can be adjusted based on the segment length and desired frequency resolution.
-        # - The axis=1 argument computes the PSD for each channel separately.
-        #========================================#
-        freqs, psd = welch(segment, fs=sfreq, nperseg=segment_len, axis=1) 
+        # --- PART 1: RELATIVE BAND POWER (RBP) ---
+        # Compute Power Spectral Density (PSD) for all 19 channels at once
+        freqs, psd = welch(segment, fs=sfreq, nperseg=segment_len, axis=1)
+        total_power = np.sum(psd, axis=1, keepdims=True) + 1e-10 # Avoid div by zero
 
-        total_power = np.sum(psd, axis=1, keepdims=True)
-        total_power[total_power == 0] = 1e-10 # If total power is zero, set to small value to avoid division by zero
+        # --- PART 2: SPECTRAL COHERENCE CONNECTIVITY (SCC) ---
+        # We build a matrix of coherence for every channel pair (19x19)
+        # Note: SCC_x is the average coherence of channel X with all other channels Y
+        coh_matrix_all_freqs = np.zeros((n_channels, n_channels, len(freqs)))
+        
+        for i in range(n_channels):
+            for j in range(i, n_channels): # Only upper triangle (it's symmetric!)
+                _, Cxy = coherence(segment[i], segment[j], fs=sfreq, nperseg=segment_len)
+                coh_matrix_all_freqs[i, j, :] = Cxy
+                coh_matrix_all_freqs[j, i, :] = Cxy
 
-        #=========================================#
-        # Notes on RBP Calculation:
-        # - For each frequency band, we identify the indices of the frequencies that fall within that
-        #   band.
-        # - We sum the PSD values for those frequencies to get the band power.
-        # - Finally, we normalize by the total power to get the relative band power.
-        #=========================================#
-
-        for b_idx, (fmin, fmax) in enumerate(bands): 
+        # --- PART 3: BAND-SPECIFIC AGGREGATION ---
+        for b_idx, (fmin, fmax) in enumerate(bands):
+            # Find frequencies belonging to this band
             idx = np.logical_and(freqs >= fmin, freqs <= fmax)
+            
+            # A. RBP: Sum power in band / total power
             band_power = np.sum(psd[:, idx], axis=1)
             rbp_features[t, b_idx, :] = band_power / total_power.flatten()
 
-    # ---------------------------------------------------------
-    # 2. Spectral Coherence Connectivity (SCC) - Using PyWavelets
-    # ---------------------------------------------------------
-    morlet_freqs = np.array([2, 6, 10, 18, 35])
-    wavelet_name = 'cmor1.5-1.0'  # Complex Morlet (bandwidth 1.5, center freq 1.0)
-
-    # Convert target frequencies (Hz) to Wavelet Scales
-    # Scale = (Center_Freq * Sampling_Rate) / Target_Freq
-    center_freq = pywt.central_frequency(wavelet_name)
-    scales = (center_freq * sfreq) / morlet_freqs
-
-    # Pre-allocate coefficients storage: (Channels, Bands, Time)
-    coeffs_all = np.zeros((n_channels, len(morlet_freqs), n_points), dtype=np.complex128)
-
-    # Compute CWT for each channel
-    # pywt.cwt returns (coeffs, freqs) where coeffs is (len(scales), len(data))
-    for ch in range(n_channels):
-        cwt_out, _ = pywt.cwt(eeg_data[ch], scales, wavelet_name, sampling_period=1/sfreq)
-        coeffs_all[ch, :, :] = cwt_out
-
-    # Calculate Coherence for each 1-second window
-    scc_features = np.zeros((target_time_steps, 5, n_channels))
-
-    for t in range(target_time_steps):
-        start = t * segment_len
-        end = start + segment_len
-
-        for b_idx in range(len(morlet_freqs)):
-            # Get coefficients for this specific band and time window
-            # Shape: (n_channels, n_samples_in_window)
-            seg_coeffs = coeffs_all[:, b_idx, start:end]
-
-            # --- Vectorized Coherence Calculation ---
-
-            # 1. Cross-Spectral Density Matrix (CSD): X * Y_conjugate
-            # Result is (19, 19) matrix of summed cross-products
-            csd_matrix = seg_coeffs @ seg_coeffs.conj().T
-
-            # 2. Power Spectral Density (Diagonal of CSD)
-            psd_vec = np.diag(csd_matrix).real
-
-            # 3. Denominator: sqrt(PSD_x * PSD_y)
-            denom = np.sqrt(np.outer(psd_vec, psd_vec))
-            denom[denom == 0] = 1e-10 # Safe division
-
-            # 4. Coherence: |CSD| / Denominator
-            coherence_matrix = np.abs(csd_matrix) / denom
-
-            # 5. Average Coherence (SCC) per channel
-            # "SCC involves calculating spectral coherence... and averaging these values for each electrode."
-            scc_val = np.mean(coherence_matrix, axis=1)
-
-            scc_features[t, b_idx, :] = scc_val
+            # B. SCC: Implement the equation SCC_x = 1/C * sum(sqrt(Cxy))
+            # The challenge formula uses sqrt of coherence (|Sxy|/sqrt(Sxx*Syy))
+            band_coh_matrix = np.sqrt(np.mean(coh_matrix_all_freqs[:, :, idx], axis=2))
+            
+            # Average across the channel dimension (1/C * sum)
+            scc_features[t, b_idx, :] = np.mean(band_coh_matrix, axis=1)
 
     return rbp_features, scc_features
 
