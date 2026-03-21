@@ -68,11 +68,13 @@ def downsample(data, orig_sfreq = 500, target_sfreq=128):
 
 def denoise_eeg(data, orig_sfreq=500, target_sfreq=128):
     # All filtering steps use orig_sfreq — data is still at 500 Hz here
+    print("Starting denoising pipeline...")
     data = bandpass_filter(data, orig_sfreq)
     data = notch_filter(data, orig_sfreq)
     data = clip_amplitude(data)
     data = remove_movement_artifacts(data, orig_sfreq)  # orig_sfreq here too
     data = downsample(data, orig_sfreq, target_sfreq)
+    print("Denoising complete.")
     return data
 
 

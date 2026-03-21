@@ -81,6 +81,7 @@ def generate_dataset(data_list: list, labels: list, subject_ids: list, sfreq: in
         subject_ids: List or array of subject identifiers. In your case, this should just be the first column of the label mapping CSV file.
         sfreq: Sampling frequency
     """
+    print(f"Generating dataset from {len(data_list)} subjects...")
     X_rbp_list = [] # We will store the RBP features for each epoch here. Each entry will be of shape (30, 5, 19) corresponding to (time windows, frequency bands, channels).
     X_scc_list = [] # We will store the SCC features for each epoch here. Each entry will also be of shape (30, 5, 19) corresponding to (time windows, frequency bands, channels).
     y_list = [] # We will store the labels for each epoch here. Each entry will be a scalar (0 or 1) corresponding to the group label for that epoch.
@@ -90,6 +91,7 @@ def generate_dataset(data_list: list, labels: list, subject_ids: list, sfreq: in
     step_samples = 15 * sfreq # Step size for sliding window (15 seconds * sampling frequency). This means we will have 50% overlap between consecutive windows.
 
     for data, label, s_id in zip(data_list, labels, subject_ids):
+        print(f"Processing subject {s_id}...")
 
         n_points = data.shape[1] # Total number of time points in the EEG recording for this subject. This is used to determine how many epochs we can extract using the sliding window approach.
 
