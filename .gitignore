@@ -1,3 +1,26 @@
-__pycache__/
+# Byte-code files
 *.pyc
+__pycache__/
+
+# Virtual environment
+.venv/
+env/
+venv/
+
+# IDE/editor files
+.vscode/
+.idea/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Test and coverage
+.coverage
+htmlcov/
+.tox/
+
 training/
+testing/
+*.npy
