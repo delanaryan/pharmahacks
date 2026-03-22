@@ -211,7 +211,7 @@ def main():
     print("STEP 3: Running default experiment (rbp + scc)")
     print("=" * 60)
     feature_combo = ['rbp', 'scc']
-    svm_params    = {'kernel': 'rbf', 'C': 1.0}
+    svm_params    = {'kernel': 'rbf', 'C': 10.0}
 
     X = build_X(epoch_cache, feature_combo)
     print(f"Feature matrix: {X.shape}")
