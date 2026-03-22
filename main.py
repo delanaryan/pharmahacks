@@ -379,14 +379,14 @@ if __name__ == "__main__":
 
     print("Training final model on full training set...")
         final_model, final_scaler = train_final_model(
-            X_train, y, {'kernel': args.kernel, 'C': args.C})
+        X_train, y, {'kernel': args.kernel, 'C': args.C})
 
     print(f"\nLoading test data from '{args.test_path}'...")
         test_data_list, test_subject_ids = load_test_data(args.test_path)
 
     print("\nExtracting test features...")
         test_cache, test_groups = build_feature_cache_unlabeled(
-            test_data_list, test_subject_ids, sfreq)
+        test_data_list, test_subject_ids, sfreq)
 
     print("\nGenerating predictions...")
         predict_test_set(
